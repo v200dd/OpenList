@@ -637,7 +637,9 @@ for arg in "$@"; do
 done
 
 if [ "$buildType" = "dev" ]; then
-  FetchWebRolling
+  if [ "${LOCAL_FRONTEND:-false}" != "true" ]; then
+    FetchWebRolling
+  fi
   if [ "$dockerType" = "docker" ]; then
     BuildDocker
   elif [ "$dockerType" = "docker-multiplatform" ]; then
@@ -648,10 +650,12 @@ if [ "$buildType" = "dev" ]; then
     BuildDev
   fi
 elif [ "$buildType" = "release" -o "$buildType" = "beta" ]; then
-  if [ "$buildType" = "beta" ]; then
-    FetchWebRolling
-  else
-    FetchWebRelease
+  if [ "${LOCAL_FRONTEND:-false}" != "true" ]; then
+    if [ "$buildType" = "beta" ]; then
+      FetchWebRolling
+    else
+      FetchWebRelease
+    fi
   fi
   if [ "$dockerType" = "docker" ]; then
     BuildDocker
