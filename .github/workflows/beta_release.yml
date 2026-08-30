@@ -43,10 +43,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          head -c 120000 CHANGELOG.md > RELEASE_NOTES.md
           if ! gh release view beta; then
-            gh release create beta --prerelease --notes-file CHANGELOG.md
+            gh release create beta --prerelease --notes-file RELEASE_NOTES.md
           else
-            gh release edit beta --prerelease --notes-file CHANGELOG.md
+            gh release edit beta --prerelease --notes-file RELEASE_NOTES.md
           fi
           gh release upload beta "CHANGELOG.md" --clobber
 
