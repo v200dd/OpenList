@@ -39,6 +39,7 @@ const (
 	ReadMeAutoRender              = "readme_autorender"
 	FilterReadMeScripts           = "filter_readme_scripts"
 	NonEFSZipEncoding             = "non_efs_zip_encoding"
+	ShortLinkAPI                   = "short_link_api"
 
 	// global
 	HideFiles               = "hide_files"
