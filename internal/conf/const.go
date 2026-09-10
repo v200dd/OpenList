@@ -43,6 +43,7 @@ const (
 
 	// global
 	HideFiles               = "hide_files"
+	EnableFileDownload      = "enable_file_download"
 	CustomizeHead           = "customize_head"
 	CustomizeBody           = "customize_body"
 	LinkExpiration          = "link_expiration"
