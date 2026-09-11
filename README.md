@@ -108,12 +108,25 @@ Thank you for your support and understanding of the OpenList project.
 - [x] Protected routes (password protection and authentication)
 - [x] WebDAV
 - [x] Docker Deploy
+- [x] Cloudflare Workers / EdgeOne deploy ([OpenList-Worker](https://github.com/OpenListTeam/OpenList-Worker), KV / Blob / D1)
 - [x] Cloudflare Workers proxy
 - [x] File/Folder package download
 - [x] Web upload(Can allow visitors to upload), delete, mkdir, rename, move and copy
 - [x] Offline download
 - [x] Copy files between two storage
 - [x] Multi-thread downloading acceleration for single-thread download/stream
+
+## Deploy on Cloudflare / EdgeOne
+
+This Go binary cannot run on Workers or EdgeOne Functions. For a full edge install that stores metadata in **Cloudflare KV / D1** or **EdgeOne Blob / KV**, deploy the TypeScript Worker:
+
+| EdgeOne International | EdgeOne China | Cloudflare Workers |
+| --- | --- | --- |
+| [![Deploy with EdgeOne](https://cdnstatic.tencentcs.com/edgeone/pages/deploy.svg)](https://edgeone.ai/pages/new?project-name=openlist-tsworker&repository-url=https://github.com/OpenListTeam/OpenList-Worker&install-command=pnpm%20install%20--no-frozen-lockfile&build-command=pnpm%20run%20build&output-directory=dist&env=ENCRYPTION_SECRET,JWT_SECRET) | [![Deploy with EdgeOne](https://cdnstatic.tencentcs.com/edgeone/pages/deploy.svg)](https://console.cloud.tencent.com/edgeone/pages/new?project-name=openlist-tsworker&repository-url=https://github.com/OpenListTeam/OpenList-Worker&install-command=pnpm%20install%20--no-frozen-lockfile&build-command=pnpm%20run%20build&output-directory=dist&env=ENCRYPTION_SECRET,JWT_SECRET) | [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/OpenListTeam/OpenList-Worker) |
+
+Set `JWT_SECRET` and `ENCRYPTION_SECRET` after deploy. This fork can point the Worker at [v200dd/OpenList-Frontend](https://github.com/v200dd/OpenList-Frontend) with `FRONTEND_GIT_URL`.
+
+Details: [deploy/README.md](./deploy/README.md) · [Cloudflare](./deploy/cloudflare.md) · [EdgeOne](./deploy/edgeone.md) · [official Worker guide](https://doc.oplist.org/guide/installation/worker)
 
 ## Document
 

@@ -108,12 +108,25 @@ OpenList 是一个由 OpenList 团队独立维护的开源项目，遵循 AGPL-3
 - [x] 受保护的路由（密码保护和认证）
 - [x] WebDAV
 - [x] Docker 部署
+- [x] Cloudflare Workers / EdgeOne 部署（[OpenList-Worker](https://github.com/OpenListTeam/OpenList-Worker)，KV / Blob / D1）
 - [x] Cloudflare Workers 代理
 - [x] 文件/文件夹打包下载
 - [x] 网页上传（可允许访客上传）、删除、新建文件夹、重命名、移动和复制
 - [x] 离线下载
 - [x] 跨存储复制文件
 - [x] 单文件多线程下载/流式加速
+
+## 部署到 Cloudflare / EdgeOne
+
+本仓库的 Go 程序不能直接跑在 Workers 或 EdgeOne Functions 上。如果要在边缘平台完整部署，并用 **Cloudflare KV / D1** 或 **EdgeOne Blob / KV** 持久化配置，请部署 TypeScript Worker：
+
+| EdgeOne 国际站 | EdgeOne 中国站 | Cloudflare Workers |
+| --- | --- | --- |
+| [![使用 EdgeOne 部署](https://cdnstatic.tencentcs.com/edgeone/pages/deploy.svg)](https://edgeone.ai/pages/new?project-name=openlist-tsworker&repository-url=https://github.com/OpenListTeam/OpenList-Worker&install-command=pnpm%20install%20--no-frozen-lockfile&build-command=pnpm%20run%20build&output-directory=dist&env=ENCRYPTION_SECRET,JWT_SECRET) | [![使用 EdgeOne 部署](https://cdnstatic.tencentcs.com/edgeone/pages/deploy.svg)](https://console.cloud.tencent.com/edgeone/pages/new?project-name=openlist-tsworker&repository-url=https://github.com/OpenListTeam/OpenList-Worker&install-command=pnpm%20install%20--no-frozen-lockfile&build-command=pnpm%20run%20build&output-directory=dist&env=ENCRYPTION_SECRET,JWT_SECRET) | [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/OpenListTeam/OpenList-Worker) |
+
+部署后请配置 `JWT_SECRET` 和 `ENCRYPTION_SECRET`。本 fork 可用 `FRONTEND_GIT_URL` 让 Worker 构建 [v200dd/OpenList-Frontend](https://github.com/v200dd/OpenList-Frontend)。
+
+详细说明：[deploy/README.md](../deploy/README.md) · [Cloudflare](../deploy/cloudflare.md) · [EdgeOne](../deploy/edgeone.md) · [官方 Worker 文档](https://doc.oplist.org/guide/installation/worker)
 
 ## 文档
 
