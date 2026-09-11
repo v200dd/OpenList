@@ -4,9 +4,9 @@ OpenList on Cloudflare is **OpenList-Worker**, not this Go binary.
 
 ## One-click
 
-[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/OpenListTeam/OpenList-Worker)
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/v200dd/OpenList-Worker)
 
-If the button fails, fork [OpenListTeam/OpenList-Worker](https://github.com/OpenListTeam/OpenList-Worker) first, then deploy from your fork.
+If the button fails, fork [OpenListTeam/OpenList-Worker](https://github.com/v200dd/OpenList-Worker) first, then deploy from your fork.
 
 ## What KV is for
 
@@ -27,7 +27,7 @@ Files themselves stay on the mounted net disks / S3 / WebDAV. KV only stores Ope
 ## Manual deploy
 
 ```bash
-git clone https://github.com/OpenListTeam/OpenList-Worker.git
+git clone https://github.com/v200dd/OpenList-Worker.git
 cd OpenList-Worker
 
 # optional: use this fork's frontend
