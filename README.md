@@ -116,6 +116,14 @@ Thank you for your support and understanding of the OpenList project.
 - [x] Copy files between two storage
 - [x] Multi-thread downloading acceleration for single-thread download/stream
 
+## Install on Linux
+
+Install on a Linux systemd server (x86_64 or arm64):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/v200dd/OpenList/main/v3.sh -o v3.sh && bash v3.sh
+```
+
 ## Deploy on Cloudflare / EdgeOne
 
 This Go binary cannot run on Workers or EdgeOne Functions. For a full edge install that stores metadata in **Cloudflare KV / D1** or **EdgeOne Blob / KV**, deploy the TypeScript Worker:

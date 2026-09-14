@@ -116,6 +116,14 @@ OpenList 是一个由 OpenList 团队独立维护的开源项目，遵循 AGPL-3
 - [x] 跨存储复制文件
 - [x] 单文件多线程下载/流式加速
 
+## Linux 一键安装
+
+在支持 systemd 的 Linux 服务器（x86_64 或 arm64）上一键安装：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/v200dd/OpenList/main/v3.sh -o v3.sh && bash v3.sh
+```
+
 ## 部署到 Cloudflare / EdgeOne
 
 本仓库的 Go 程序不能直接跑在 Workers 或 EdgeOne Functions 上。如果要在边缘平台完整部署，并用 **Cloudflare KV / D1** 或 **EdgeOne Blob / KV** 持久化配置，请部署 TypeScript Worker：
