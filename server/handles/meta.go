@@ -38,6 +38,9 @@ func CreateMeta(c *gin.Context) {
 		common.ErrorResp(c, err, 400)
 		return
 	}
+	if !validateDownloadPolicy(c, &req) {
+		return
+	}
 	r, err := validHide(req.Hide)
 	if err != nil {
 		common.ErrorStrResp(c, fmt.Sprintf("%s is illegal: %s", r, err.Error()), 400)
@@ -56,6 +59,9 @@ func UpdateMeta(c *gin.Context) {
 		common.ErrorResp(c, err, 400)
 		return
 	}
+	if !validateDownloadPolicy(c, &req) {
+		return
+	}
 	r, err := validHide(req.Hide)
 	if err != nil {
 		common.ErrorStrResp(c, fmt.Sprintf("%s is illegal: %s", r, err.Error()), 400)
@@ -66,6 +72,17 @@ func UpdateMeta(c *gin.Context) {
 	} else {
 		common.SuccessResp(c)
 	}
+}
+
+func validateDownloadPolicy(c *gin.Context, meta *model.Meta) bool {
+	if !model.ValidDownloadPolicy(meta.DownloadPolicy) {
+		common.ErrorStrResp(c, "download_policy must be inherit, enabled, or disabled", 400)
+		return false
+	}
+	if meta.DownloadPolicy == "" {
+		meta.DownloadPolicy = model.DownloadPolicyInherit
+	}
+	return true
 }
 
 func validHide(hide string) (string, error) {

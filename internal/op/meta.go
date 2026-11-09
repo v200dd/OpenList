@@ -27,6 +27,39 @@ var metaG singleflight.Group[*model.Meta]
 func GetNearestMeta(path string) (*model.Meta, error) {
 	return getNearestMeta(utils.FixAndCleanPath(path))
 }
+
+// GetFileDownloadMeta resolves the nearest explicit download UI policy for a
+// folder. Unrelated metadata (e.g. a child's readme) must not mask an inherited
+// policy. The caller passes the parent folder when querying a file.
+func GetFileDownloadMeta(folderPath string) (*model.Meta, error) {
+	return getFileDownloadMeta(folderPath, GetNearestMeta)
+}
+
+func getFileDownloadMeta(folderPath string, nearest func(string) (*model.Meta, error)) (*model.Meta, error) {
+	folderPath = utils.FixAndCleanPath(folderPath)
+	for current := folderPath; ; {
+		meta, err := nearest(current)
+		if err != nil {
+			if errors.Is(errors.Cause(err), errs.MetaNotFound) {
+				return nil, nil
+			}
+			return nil, err
+		}
+		if meta == nil {
+			return nil, nil
+		}
+		metaPath := utils.FixAndCleanPath(meta.Path)
+		if (strings.EqualFold(metaPath, folderPath) || meta.DownloadSub) &&
+			(meta.DownloadPolicy == model.DownloadPolicyEnabled || meta.DownloadPolicy == model.DownloadPolicyDisabled) {
+			return meta, nil
+		}
+		if metaPath == "/" {
+			return nil, nil
+		}
+		current = stdpath.Dir(metaPath)
+	}
+}
+
 func getNearestMeta(path string) (*model.Meta, error) {
 	var metas []model.Meta
 	loaded := false

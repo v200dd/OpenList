@@ -67,6 +67,14 @@ func (s *Server) callFSGet(c *gin.Context, raw json.RawMessage) (any, *rpcError)
 	}
 
 	parentPath := stdpath.Dir(reqPath)
+	downloadFolder := parentPath
+	if obj.IsDir() {
+		downloadFolder = reqPath
+	}
+	downloadEnabled, err := common.FileDownloadEnabled(user, downloadFolder)
+	if err != nil {
+		return nil, &rpcError{Code: -32603, Message: err.Error()}
+	}
 	var related []model.Obj
 	if !obj.IsDir() && utils.GetFileType(obj.GetName()) == conf.VIDEO {
 		sameLevelFiles, err := fs.List(ctx, parentPath, &fs.ListArgs{})
@@ -92,11 +100,12 @@ func (s *Server) callFSGet(c *gin.Context, raw json.RawMessage) (any, *rpcError)
 			HashInfo:     obj.GetHash().Export(),
 			MountDetails: mountDetails,
 		},
-		RawURL:   rawURL,
-		Readme:   getReadme(meta, reqPath),
-		Header:   getHeader(meta, reqPath),
-		Provider: provider,
-		Related:  toObjResp(related, parentPath, isEncrypt(parentMeta, parentPath)),
+		RawURL:             rawURL,
+		Readme:             getReadme(meta, reqPath),
+		Header:             getHeader(meta, reqPath),
+		Provider:           provider,
+		Related:            toObjResp(related, parentPath, isEncrypt(parentMeta, parentPath)),
+		EnableFileDownload: downloadEnabled,
 	}, nil
 }
 

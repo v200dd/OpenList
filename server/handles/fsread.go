@@ -55,6 +55,7 @@ type FsListResp struct {
 	WriteContentBypass bool      `json:"write_content_bypass"`
 	Provider           string    `json:"provider"`
 	DirectUploadTools  []string  `json:"direct_upload_tools,omitempty"`
+	EnableFileDownload bool      `json:"enable_file_download"`
 }
 
 func FsListSplit(c *gin.Context) {
@@ -107,6 +108,11 @@ func FsList(c *gin.Context, req *ListReq, user *model.User) {
 		return
 	}
 	total, objs := pagination(objs, &req.PageReq)
+	downloadEnabled, err := common.FileDownloadEnabled(user, reqPath)
+	if err != nil {
+		common.ErrorResp(c, err, 500, true)
+		return
+	}
 	provider := "unknown"
 	var directUploadTools []string
 	if canWriteContentAtPath {
@@ -123,6 +129,7 @@ func FsList(c *gin.Context, req *ListReq, user *model.User) {
 		WriteContentBypass: common.CanWriteContentBypassUserPerms(meta, reqPath),
 		Provider:           provider,
 		DirectUploadTools:  directUploadTools,
+		EnableFileDownload: downloadEnabled,
 	})
 }
 
@@ -254,11 +261,12 @@ type FsGetReq struct {
 
 type FsGetResp struct {
 	ObjResp
-	RawURL   string    `json:"raw_url"`
-	Readme   string    `json:"readme"`
-	Header   string    `json:"header"`
-	Provider string    `json:"provider"`
-	Related  []ObjResp `json:"related"`
+	RawURL             string    `json:"raw_url"`
+	Readme             string    `json:"readme"`
+	Header             string    `json:"header"`
+	Provider           string    `json:"provider"`
+	Related            []ObjResp `json:"related"`
+	EnableFileDownload bool      `json:"enable_file_download"`
 }
 
 func FsGetSplit(c *gin.Context) {
@@ -348,6 +356,15 @@ func FsGet(c *gin.Context, req *FsGetReq, user *model.User) {
 		}
 	}
 	parentPath := stdpath.Dir(reqPath)
+	downloadFolder := parentPath
+	if obj.IsDir() {
+		downloadFolder = reqPath
+	}
+	downloadEnabled, err := common.FileDownloadEnabled(user, downloadFolder)
+	if err != nil {
+		common.ErrorResp(c, err, 500, true)
+		return
+	}
 	var related []model.Obj
 	if !obj.IsDir() && utils.GetFileType(obj.GetName()) == conf.VIDEO {
 		sameLevelFiles, err := fs.List(c.Request.Context(), parentPath, &fs.ListArgs{})
@@ -372,11 +389,12 @@ func FsGet(c *gin.Context, req *FsGetReq, user *model.User) {
 			Thumb:        thumb,
 			MountDetails: mountDetails,
 		},
-		RawURL:   rawURL,
-		Readme:   getReadme(meta, reqPath),
-		Header:   getHeader(meta, reqPath),
-		Provider: provider,
-		Related:  toObjsResp(related, parentPath, isEncrypt(parentMeta, parentPath)),
+		RawURL:             rawURL,
+		Readme:             getReadme(meta, reqPath),
+		Header:             getHeader(meta, reqPath),
+		Provider:           provider,
+		Related:            toObjsResp(related, parentPath, isEncrypt(parentMeta, parentPath)),
+		EnableFileDownload: downloadEnabled,
 	})
 }
 

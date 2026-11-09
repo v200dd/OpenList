@@ -69,6 +69,10 @@ func (s *Server) callFSList(c *gin.Context, raw json.RawMessage) (any, *rpcError
 	}
 
 	total, paged := paginateObjs(objs, args.Page, args.PerPage)
+	downloadEnabled, err := common.FileDownloadEnabled(user, reqPath)
+	if err != nil {
+		return nil, &rpcError{Code: -32603, Message: err.Error()}
+	}
 	return handles.FsListResp{
 		Content:            toObjResp(paged, reqPath, isEncrypt(meta, reqPath)),
 		Total:              int64(total),
@@ -77,6 +81,7 @@ func (s *Server) callFSList(c *gin.Context, raw json.RawMessage) (any, *rpcError
 		Provider:           "unknown",
 		Readme:             getReadme(meta, reqPath),
 		Header:             getHeader(meta, reqPath),
+		EnableFileDownload: downloadEnabled,
 	}, nil
 }
 

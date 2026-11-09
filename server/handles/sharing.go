@@ -57,11 +57,12 @@ func SharingGet(c *gin.Context, req *FsGetReq) {
 			Type:        utils.GetObjType(obj.GetName(), obj.IsDir()),
 			Thumb:       thumb,
 		},
-		RawURL:   url,
-		Readme:   s.Readme,
-		Header:   s.Header,
-		Provider: "unknown",
-		Related:  nil,
+		RawURL:             url,
+		Readme:             s.Readme,
+		Header:             s.Header,
+		Provider:           "unknown",
+		Related:            nil,
+		EnableFileDownload: common.DefaultFileDownloadEnabled(c.Request.Context().Value(conf.UserKey).(*model.User)),
 	})
 }
 
@@ -96,11 +97,12 @@ func SharingList(c *gin.Context, req *ListReq) {
 				Type:        utils.GetObjType(obj.GetName(), obj.IsDir()),
 			}
 		}),
-		Total:    int64(total),
-		Readme:   s.Readme,
-		Header:   s.Header,
-		Write:    false,
-		Provider: "unknown",
+		Total:              int64(total),
+		Readme:             s.Readme,
+		Header:             s.Header,
+		Write:              false,
+		Provider:           "unknown",
+		EnableFileDownload: common.DefaultFileDownloadEnabled(c.Request.Context().Value(conf.UserKey).(*model.User)),
 	})
 }
 
