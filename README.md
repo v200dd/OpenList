@@ -146,6 +146,25 @@ An optional `v3.env` containing only `OPENLIST_*` keys may be placed beside the 
 working directory. URL templates accept `{ARCH}` and `{TAG}`; `OPENLIST_GH_PROXY` remains available
 for the GitHub Release fallback.
 
+## Docker frontend updates and offline image packages
+
+Backend pushes publish `beta`. An hourly check also rebuilds Docker when the published frontend
+`edge` archive changes, and skips unchanged builds. Image labels record both backend revision and
+frontend version/digest. Running containers still need to be recreated to use a newly published image.
+
+Successful Docker builds export AMD64 and ARM64 `openlist-docker-beta-{ARCH}.tar.gz` archives plus
+SHA-256 sidecars to the `beta` release. These Docker image archives can be hosted on OpenList and
+loaded without pulling through a registry. They are distinct from standalone binary packages.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/v200dd/OpenList/main/docker-v3.sh -o docker-v3.sh && bash docker-v3.sh
+```
+
+`OPENLIST_DOCKER_URL` selects an individual image archive. `OPENLIST_DOCKER_BUNDLE_URL` selects a ZIP
+containing both architectures; pass its SHA-256 through `OPENLIST_DOCKER_SHA256`. Existing Compose
+configuration and data are preserved; updates use `--pull never`. See `docker-compose.offline.yml`.
+Self-hosted OpenList files need to be refreshed when new exported images are published.
+
 ## Deploy on Cloudflare / EdgeOne
 
 This Go binary cannot run on Workers or EdgeOne Functions. For a full edge install that stores metadata in **Cloudflare KV / D1** or **EdgeOne Blob / KV**, deploy the TypeScript Worker:

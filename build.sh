@@ -20,10 +20,10 @@ fi
 
 if [ "$1" = "dev" ]; then
   version="dev"
-  webVersion="rolling"
+  webVersion="${FRONTEND_VERSION:-rolling}"
 elif [ "$1" = "beta" ]; then
   version="beta"
-  webVersion="rolling"
+  webVersion="${FRONTEND_VERSION:-rolling}"
 else
   git tag -d beta || true
   # Always true if there's no tag
@@ -97,16 +97,42 @@ AssertStaticBinary() {
 }
 
 FetchWebRolling() {
-  pre_release_json=$(eval "curl -fsSL --max-time 2 $githubAuthArgs -H \"Accept: application/vnd.github.v3+json\" \"https://api.github.com/repos/$frontendRepo/releases/tags/edge\"")
-  pre_release_assets=$(echo "$pre_release_json" | jq -r '.assets[].browser_download_url')
-  
-  # There is no lite for rolling
-  pre_release_tar_url=$(echo "$pre_release_assets" | grep "openlist-frontend-dist" | grep -v "lite" | grep "\.tar\.gz$")
-
-  curl -fsSL "$pre_release_tar_url" -o dist.tar.gz
-  rm -rf public/dist && mkdir -p public/dist
-  tar -zxvf dist.tar.gz -C public/dist
-  rm -rf dist.tar.gz
+  local url="${FRONTEND_ARCHIVE_URL:-}" expected="${FRONTEND_ARCHIVE_SHA256:-}" archive staging actual
+  if [ -z "$url" ]; then
+    pre_release_json=$(eval "curl -fsSL --retry 3 --connect-timeout 10 --max-time 30 $githubAuthArgs -H \"Accept: application/vnd.github.v3+json\" \"https://api.github.com/repos/$frontendRepo/releases/tags/edge\"")
+    url="$(printf '%s' "$pre_release_json" | jq -er '[.assets[] | select(.name | startswith("openlist-frontend-dist")) | select(.name | contains("lite") | not) | select(.name | endswith(".tar.gz"))] | if length == 1 then .[0].browser_download_url else error("Expected one frontend archive") end')"
+    expected="$(printf '%s' "$pre_release_json" | jq --arg url "$url" -r '.assets[] | select(.browser_download_url == $url) | .digest // empty')"
+    expected="${expected#sha256:}"
+  fi
+  if ! [[ "$expected" =~ ^[0-9a-f]{64}$ ]]; then
+    echo "Error: frontend archive is missing a valid SHA-256 digest" >&2
+    return 1
+  fi
+  archive="$(mktemp ./frontend.XXXXXX.tar.gz)"
+  staging="$(mktemp -d ./frontend.XXXXXX)"
+  if ! curl -fsSL --retry 3 --connect-timeout 10 "$url" -o "$archive"; then
+    rm -f "$archive"; rm -rf "$staging"; return 1
+  fi
+  if command -v sha256sum >/dev/null 2>&1; then
+    actual="$(sha256sum "$archive" | awk '{print $1}')"
+  else
+    actual="$(shasum -a 256 "$archive" | awk '{print $1}')"
+  fi
+  if [ "$actual" != "$expected" ]; then
+    echo "Error: frontend archive SHA-256 mismatch" >&2
+    rm -f "$archive"; rm -rf "$staging"; return 1
+  fi
+  if ! tar -xzf "$archive" -C "$staging"; then
+    rm -f "$archive"; rm -rf "$staging"; return 1
+  fi
+  if [ -n "${FRONTEND_VERSION:-}" ] && [ "$(cat "$staging/VERSION")" != "$FRONTEND_VERSION" ]; then
+    echo "Error: frontend archive VERSION mismatch" >&2
+    rm -f "$archive"; rm -rf "$staging"; return 1
+  fi
+  rm -rf public/dist
+  mkdir -p public
+  mv "$staging" public/dist
+  rm -f "$archive"
 }
 
 FetchWebRelease() {

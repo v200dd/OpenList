@@ -154,6 +154,29 @@ OPENLIST_BUNDLE_URL='' bash v3.sh
 如需把镜像地址固化到一键命令里，可在 `v3.sh` 同目录或当前目录放一个只含 `OPENLIST_*` 键的
 `v3.env`，通过 `curl` 下载脚本后直接 `bash v3.sh`。运行 `bash v3.sh download-url` 可查看实际解析出的地址。
 
+## Docker 最新版与国内直链安装
+
+`ghcr.nju.edu.cn/v200dd/openlist-git:beta` 是 GHCR 镜像加速地址，仍可用于普通 Compose 部署。
+后端 `main` 推送会构建 `beta` 镜像；工作流还会每小时检查已发布的前端 `edge`，前端摘要变化时自动重建。
+未变化时跳过构建。镜像标签记录后端提交、前端版本和前端 SHA-256。
+`beta` 跟随本 fork 已发布的代码与前端，不会自动升级服务器上已经运行的容器；拉取并重建容器后生效。
+
+每次成功发布还会生成 AMD64、ARM64 的 Docker 镜像导出包和 `.sha256` 校验文件，位于 `beta` Release。
+这些包可上传到国内 OpenList，再通过直链下载、`docker load` 导入。
+二进制安装用的 `OpenList.zip` 与 Docker 镜像导出包是不同格式。
+
+```bash
+# 默认从 beta Release 下载当前架构的 Docker 镜像包，导入并更新 OpenList
+curl -fsSL https://raw.githubusercontent.com/v200dd/OpenList/main/docker-v3.sh -o docker-v3.sh && bash docker-v3.sh
+
+# 使用国内 OpenList 的整包 ZIP 直链：SHA-256 是新 Docker ZIP 的摘要
+OPENLIST_DOCKER_BUNDLE_URL='https://mirror.example/OpenList-Docker.zip' OPENLIST_DOCKER_SHA256='新DockerZIP的64位SHA256' bash docker-v3.sh
+```
+
+脚本沿用现有 Compose 文件与数据目录，只更新 `openlist` 服务，并使用 `--pull never` 防止再次拉取旧镜像。
+新部署可使用仓库中的 `docker-compose.offline.yml`。国内 OpenList 上的镜像包需要随着新版导出包更新，
+GitHub 发布不会自动替换自行上传的文件。
+
 ## 部署到 Cloudflare / EdgeOne
 
 本仓库的 Go 程序不能直接跑在 Workers 或 EdgeOne Functions 上。如果要在边缘平台完整部署，并用 **Cloudflare KV / D1** 或 **EdgeOne Blob / KV** 持久化配置，请部署 TypeScript Worker：

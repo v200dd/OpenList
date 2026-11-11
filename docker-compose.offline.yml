@@ -1,0 +1,14 @@
+services:
+  openlist:
+    image: ghcr.nju.edu.cn/v200dd/openlist-git:beta
+    pull_policy: never
+    container_name: openlist
+    restart: unless-stopped
+    ports:
+      - "5244:5244"
+    volumes:
+      - ./data:/opt/openlist/data
+    environment:
+      - TZ=Asia/Shanghai
+      - UMASK=022
+    user: "0:0"
