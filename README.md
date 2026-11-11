@@ -164,6 +164,9 @@ curl -fsSL https://raw.githubusercontent.com/v200dd/OpenList/main/docker-v3.sh -
 containing both architectures; pass its SHA-256 through `OPENLIST_DOCKER_SHA256`. Existing Compose
 configuration and data are preserved; updates use `--pull never`. See `docker-compose.offline.yml`.
 Self-hosted OpenList files need to be refreshed when new exported images are published.
+The default beta bundle uses [the domestic short link](https://url.200996.xyz/PuTW) with its
+SHA-256 pinned in the installer. An explicitly empty `OPENLIST_DOCKER_BUNDLE_URL` restores the
+latest GitHub Release archive source. Run `bash docker-v3.sh download-url` to inspect the source.
 
 ## Deploy on Cloudflare / EdgeOne
 

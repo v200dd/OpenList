@@ -66,3 +66,13 @@ if OPENLIST_DOCKER_BUNDLE_URL="file://$tmp/bundle.zip" OPENLIST_DOCKER_SHA256="$
 fi
 ! grep -q '^load ' "$DOCKER_TEST_LOG"
 echo 'PASS bad ZIP checksum rejected before Docker load'
+
+: > "$DOCKER_TEST_LOG"
+bash "$root/docker-v3.sh" download-url > "$tmp/default-source"
+grep -Fxq 'https://url.200996.xyz/PuTW' "$tmp/default-source"
+test ! -s "$DOCKER_TEST_LOG"
+echo 'PASS built-in domestic short link can be inspected without Docker'
+
+OPENLIST_DOCKER_BUNDLE_URL='' bash "$root/docker-v3.sh" download-url > "$tmp/github-source"
+grep -Fxq 'https://github.com/v200dd/OpenList/releases/download/beta/openlist-docker-beta-arm64.tar.gz' "$tmp/github-source"
+echo 'PASS explicit empty bundle restores GitHub Release source'

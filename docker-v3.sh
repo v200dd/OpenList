@@ -4,13 +4,9 @@ set -euo pipefail
 
 action="${1:-install}"
 case "$action" in
-  install|update|load) ;;
-  *) echo '用法: bash docker-v3.sh [install|update|load]' >&2; exit 1 ;;
+  install|update|load|download-url) ;;
+  *) echo '用法: bash docker-v3.sh [install|update|load|download-url]' >&2; exit 1 ;;
 esac
-for command in docker curl tar awk mktemp uname; do
-  command -v "$command" >/dev/null || { echo "未找到命令: $command" >&2; exit 1; }
-done
-docker info >/dev/null
 case "$(uname -m)" in
   x86_64|amd64) arch=amd64 ;;
   aarch64|arm64) arch=arm64 ;;
@@ -18,10 +14,27 @@ case "$(uname -m)" in
 esac
 tag="${OPENLIST_DOCKER_TAG:-beta}"
 package="openlist-docker-${tag}-${arch}.tar.gz"
-url="${OPENLIST_DOCKER_URL:-${OPENLIST_DOCKER_BUNDLE_URL:-https://github.com/v200dd/OpenList/releases/download/${tag}/${package}}}"
+DEFAULT_BUNDLE_URL='https://url.200996.xyz/PuTW'
+DEFAULT_BUNDLE_SHA256='0e7d7fd7deeb05da8089d433c0079711340dbffe6c802c8ae1fbce294a42184e'
+default_bundle=""
+[ "$tag" != beta ] || default_bundle="$DEFAULT_BUNDLE_URL"
+# Explicit URLs override the built-in mirror. An empty bundle restores GitHub downloads.
+bundle="${OPENLIST_DOCKER_BUNDLE_URL-$default_bundle}"
+url="${OPENLIST_DOCKER_URL:-${bundle:-https://github.com/v200dd/OpenList/releases/download/${tag}/${package}}}"
 url="${url//\{ARCH\}/$arch}"
 url="${url//\{TAG\}/$tag}"
 checksum="${OPENLIST_DOCKER_SHA256:-auto}"
+if [ "$url" = "$DEFAULT_BUNDLE_URL" ] && [ -z "${OPENLIST_DOCKER_SHA256:-}" ] && [ -z "${OPENLIST_DOCKER_SHA256_URL:-}" ]; then
+  checksum="$DEFAULT_BUNDLE_SHA256"
+fi
+if [ "$action" = download-url ]; then
+  printf '%s\n' "$url"
+  exit 0
+fi
+for command in docker curl tar awk mktemp uname; do
+  command -v "$command" >/dev/null || { echo "未找到命令: $command" >&2; exit 1; }
+done
+docker info >/dev/null
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
@@ -42,6 +55,29 @@ verify() {
   echo '镜像包 SHA-256 校验通过。'
 }
 
+ensure_unzip() {
+  command -v unzip >/dev/null && return 0
+  [ "$(id -u)" = 0 ] || { echo '自动安装 unzip 需要以 root 运行脚本。' >&2; return 1; }
+  echo '正在安装 ZIP 解包工具 unzip。'
+  if command -v apt-get >/dev/null; then
+    DEBIAN_FRONTEND=noninteractive apt-get update
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends unzip
+  elif command -v dnf >/dev/null; then
+    dnf install -y unzip
+  elif command -v yum >/dev/null; then
+    yum install -y unzip
+  elif command -v apk >/dev/null; then
+    apk add --no-cache unzip
+  elif command -v zypper >/dev/null; then
+    zypper --non-interactive install unzip
+  elif command -v pacman >/dev/null; then
+    pacman -S --needed --noconfirm unzip
+  else
+    echo '请安装 unzip 解包工具后重试。' >&2; return 1
+  fi
+  command -v unzip >/dev/null
+}
+
 echo "正在下载 Docker 镜像包，架构: $arch"
 fetch "$url" "$work/download"
 if [ "$checksum" = auto ]; then
@@ -53,7 +89,7 @@ verify "$work/download" "$checksum"
 magic="$(head -c 4 "$work/download" | od -An -tx1 | tr -d ' \n')"
 case "$magic" in
   504b0304)
-    command -v unzip >/dev/null || { echo '请先安装 unzip 解包工具。' >&2; exit 1; }
+    ensure_unzip
     unzip -Z1 "$work/download" > "$work/members"
     member=""
     for candidate in "$package" "openlist-docker/$package"; do

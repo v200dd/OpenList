@@ -166,12 +166,20 @@ OPENLIST_BUNDLE_URL='' bash v3.sh
 二进制安装用的 `OpenList.zip` 与 Docker 镜像导出包是不同格式。
 
 ```bash
-# 默认从 beta Release 下载当前架构的 Docker 镜像包，导入并更新 OpenList
+# 默认从国内整包短链接下载、校验镜像并更新 OpenList
 curl -fsSL https://raw.githubusercontent.com/v200dd/OpenList/main/docker-v3.sh -o docker-v3.sh && bash docker-v3.sh
 
 # 使用国内 OpenList 的整包 ZIP 直链：SHA-256 是新 Docker ZIP 的摘要
 OPENLIST_DOCKER_BUNDLE_URL='https://mirror.example/OpenList-Docker.zip' OPENLIST_DOCKER_SHA256='新DockerZIP的64位SHA256' bash docker-v3.sh
+
+# 查看下载源；显式清空整包地址后，改用最新 beta Release 镜像包
+bash docker-v3.sh download-url
+OPENLIST_DOCKER_BUNDLE_URL='' bash docker-v3.sh
 ```
+
+默认 Docker 整包地址为 [国内 Docker 短链接](https://url.200996.xyz/PuTW)，脚本内置该 ZIP 的 SHA-256。
+显式的 `OPENLIST_DOCKER_URL` 或 `OPENLIST_DOCKER_BUNDLE_URL` 可以覆盖默认源。
+缺少 `unzip` 时，root 用户运行脚本会通过系统包管理器自动安装。
 
 脚本沿用现有 Compose 文件与数据目录，只更新 `openlist` 服务，并使用 `--pull never` 防止再次拉取旧镜像。
 新部署可使用仓库中的 `docker-compose.offline.yml`。国内 OpenList 上的镜像包需要随着新版导出包更新，
