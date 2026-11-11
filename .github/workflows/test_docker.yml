@@ -188,6 +188,7 @@ jobs:
       matrix:
         arch: [amd64, arm64]
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Set up QEMU
         uses: docker/setup-qemu-action@1f40c72289eff860ee54a304f1438e3cff362e0a
       - name: Login to GitHub Container Registry
@@ -210,8 +211,12 @@ jobs:
           actual_frontend="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.frontend.sha256"}}' "$source")"
           test "$actual_revision" = "$REVISION"
           test "$actual_frontend" = "$FRONTEND_SHA256"
-          docker run --rm --platform "linux/${ARCH}" "$source" version | tee version.txt
+          docker run --rm --platform "linux/${ARCH}" "$source" /entrypoint.sh version | tee version.txt
           grep -F "$FRONTEND_VERSION" version.txt
+          container="$(docker run -d --rm --platform "linux/${ARCH}" --tmpfs /opt/openlist/data:rw,uid=1001,gid=1001 -e UMASK=022 -p 127.0.0.1::5244 "$source")"
+          trap 'docker rm -f "$container" >/dev/null 2>&1 || true' EXIT
+          address="$(docker port "$container" 5244/tcp | head -n 1)"
+          python3 .github/scripts/docker_smoke.py "http://${address}"
           canonical="ghcr.io/${GHCR_ORG_NAME}/${IMAGE_NAME}:beta"
           mirror="ghcr.nju.edu.cn/${GHCR_ORG_NAME}/${IMAGE_NAME}:beta"
           local="${GHCR_ORG_NAME}/${IMAGE_NAME}:beta"
