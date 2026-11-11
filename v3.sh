@@ -71,6 +71,15 @@ RELEASE_TAG="${OPENLIST_RELEASE_TAG:-beta}"
 GH_PROXY="${OPENLIST_GH_PROXY:-}"
 DOWNLOAD_URL="${OPENLIST_DOWNLOAD_URL:-}"
 DOWNLOAD_BASE="${OPENLIST_DOWNLOAD_BASE:-}"
+# The ZIP mirror contains both architectures and their SHA-256 sidecars.
+# An explicitly empty OPENLIST_BUNDLE_URL restores the GitHub Release fallback.
+DEFAULT_BUNDLE_URL="https://url.200996.xyz/2DXW"
+DEFAULT_BUNDLE_SHA256="2a987ce1dcd5d33bc52a3f0e78723dfe912090feeac09ccf2863e2e4671566ce"
+BUNDLE_URL="${OPENLIST_BUNDLE_URL-$DEFAULT_BUNDLE_URL}"
+BUNDLE_CHECKSUM="${OPENLIST_BUNDLE_SHA256:-}"
+if [ "$BUNDLE_URL" = "$DEFAULT_BUNDLE_URL" ]; then
+  BUNDLE_CHECKSUM="${OPENLIST_BUNDLE_SHA256-$DEFAULT_BUNDLE_SHA256}"
+fi
 PACKAGE_NAME="${OPENLIST_PACKAGE_NAME:-openlist-linux-musl-__ARCH__.tar.gz}"
 CHECKSUM="${OPENLIST_SHA256:-}"
 CHECKSUM_URL="${OPENLIST_SHA256_URL:-}"
@@ -82,6 +91,7 @@ SERVICE_FILE="${OPENLIST_SERVICE_FILE:-/etc/systemd/system/${SERVICE_NAME}.servi
 
 DETECTED_ARCH=""
 RESOLVED_URL=""
+RESOLVED_BUNDLE=0
 FOUND_INSTALL_PATH=""
 PREPARED_BINARY=""
 EXPECTED_SHA256=""
@@ -103,8 +113,10 @@ $APP_NAME 管理脚本
   bash $0                   显示交互菜单
 
 下载地址:
-  OPENLIST_DOWNLOAD_URL      完整下载地址；支持 {ARCH} / {TAG}；可指向 tar.gz 或裸二进制
+  OPENLIST_DOWNLOAD_URL      完整下载地址；支持 {ARCH} / {TAG}；可指向 ZIP、tar.gz 或裸二进制
   OPENLIST_DOWNLOAD_BASE     镜像目录；自动拼接包名，支持 {ARCH} / {TAG}
+  OPENLIST_BUNDLE_URL        整包 ZIP 地址，默认: $DEFAULT_BUNDLE_URL；设为空可使用 GitHub Release
+  OPENLIST_BUNDLE_SHA256     整包 ZIP 的 SHA-256；默认镜像内置校验值
   OPENLIST_PACKAGE_NAME      包名模板，默认 openlist-linux-musl-{ARCH}.tar.gz
   OPENLIST_LOCAL_DIR         本机安装包目录，默认当前目录
   OPENLIST_RELEASE_TAG       GitHub Release 标签，默认 beta
@@ -118,10 +130,11 @@ $APP_NAME 管理脚本
   OPENLIST_INSTALL_PATH      安装目录；install 的第二个参数优先
   OPENLIST_SERVICE_FILE      systemd 单元文件路径（高级用途）
 
-优先级: OPENLIST_DOWNLOAD_URL > OPENLIST_DOWNLOAD_BASE > 本机安装包 > GitHub Release。
+优先级: OPENLIST_DOWNLOAD_URL > OPENLIST_DOWNLOAD_BASE > 本机安装包 > 整包 ZIP 镜像 > GitHub Release。
 自定义地址支持 http://、https://、file://、绝对路径及相对路径。
 脚本还会读取当前目录或脚本目录的 v3.env；只读取 OPENLIST_* 键。
-把 v3.sh 和二进制一起放到镜像站，配合 v3.env 或环境变量即可完全绕开 GitHub 下载。
+默认安装与更新从短链接下载整包，自动选择当前架构；ZIP 解包工具缺失时自动安装 unzip。
+把 v3.sh 和二进制一起放到镜像站，也可以通过 v3.env 或环境变量设置其他下载源。
 USAGE
 }
 
@@ -206,6 +219,7 @@ normalize_source() {
 
 resolve_url() {
   local arch="$1" url="" base candidate
+  RESOLVED_BUNDLE=0
   if [ -n "$DOWNLOAD_URL" ]; then
     url="$DOWNLOAD_URL"
   elif [ -n "$DOWNLOAD_BASE" ]; then
@@ -234,6 +248,10 @@ resolve_url() {
           break
         fi
       done
+    fi
+    if [ -z "$url" ] && [ -n "$BUNDLE_URL" ]; then
+      url="$BUNDLE_URL"
+      RESOLVED_BUNDLE=1
     fi
     if [ -z "$url" ]; then
       url="https://github.com/${GH_REPO}/releases/download/${RELEASE_TAG}/${PACKAGE_NAME}"
@@ -343,6 +361,9 @@ resolve_checksum() {
 verify_checksum() {
   local file="$1" source_url="$2" actual
   local -a tool=()
+  if [ "$RESOLVED_BUNDLE" = "1" ] && [ -z "$CHECKSUM" ] && [ -z "$CHECKSUM_URL" ]; then
+    local CHECKSUM="$BUNDLE_CHECKSUM" CHECKSUM_URL=""
+  fi
   resolve_checksum "$source_url" || return 1
   [ -z "$EXPECTED_SHA256" ] && return 0
   require_checksum_tool || return 1
@@ -360,6 +381,79 @@ verify_checksum() {
   return 0
 }
 
+ensure_unzip() {
+  command -v unzip >/dev/null 2>&1 && return 0
+  require_root || return 1
+  info "正在安装 ZIP 解包工具 unzip。"
+  if command -v apt-get >/dev/null 2>&1; then
+    DEBIAN_FRONTEND=noninteractive apt-get update || return 1
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends unzip || return 1
+  elif command -v dnf >/dev/null 2>&1; then
+    dnf install -y unzip || return 1
+  elif command -v yum >/dev/null 2>&1; then
+    yum install -y unzip || return 1
+  elif command -v zypper >/dev/null 2>&1; then
+    zypper --non-interactive install unzip || return 1
+  elif command -v pacman >/dev/null 2>&1; then
+    pacman -S --needed --noconfirm unzip || return 1
+  else
+    error "未找到 unzip，请安装 ZIP 解包工具后重试。"
+    return 1
+  fi
+  require_command unzip
+}
+
+extract_tar_binary() {
+  local archive="$1" workdir="$2" binary
+  mkdir -p "$workdir/extract" || return 1
+  if ! tar -xzf "$archive" -C "$workdir/extract"; then
+    error "解压失败，请确认安装包是 OpenList 的 tar.gz 文件。"
+    return 1
+  fi
+  if [ -f "$workdir/extract/$BINARY_NAME" ]; then
+    binary="$workdir/extract/$BINARY_NAME"
+  else
+    binary="$(find "$workdir/extract" -type f -name "$BINARY_NAME" -print 2>/dev/null | head -n 1)"
+  fi
+  PREPARED_BINARY="$binary"
+}
+
+prepare_zip_binary() {
+  local archive="$1" workdir="$2" package member="" candidate expected
+  ensure_unzip || return 1
+  [ -n "$DETECTED_ARCH" ] || detect_arch || return 1
+  package="$(substitute_placeholders "$PACKAGE_NAME")"
+  unzip -Z1 "$archive" > "$workdir/zip-members" || return 1
+  for candidate in "openlist/$package" "$package"; do
+    if grep -Fxq "$candidate" "$workdir/zip-members"; then
+      member="$candidate"
+      break
+    fi
+  done
+  if [ -z "$member" ]; then
+    error "ZIP 整包中没有当前架构的安装包: $package"
+    return 1
+  fi
+  info "从 ZIP 整包中提取当前架构: $DETECTED_ARCH"
+  # Stream only the requested member; never execute the script inside the ZIP.
+  unzip -p "$archive" "$member" > "$workdir/package.tar.gz" || return 1
+  if grep -Fxq "$member.sha256" "$workdir/zip-members"; then
+    unzip -p "$archive" "$member.sha256" > "$workdir/package.sha256" || return 1
+    expected="$(awk 'NF {print $1; exit}' "$workdir/package.sha256")"
+    if [ -z "$expected" ]; then
+      error "ZIP 整包中当前架构的 SHA-256 校验文件为空。"
+      return 1
+    fi
+    (
+      CHECKSUM="$expected"
+      CHECKSUM_URL=""
+      RESOLVED_BUNDLE=0
+      verify_checksum "$workdir/package.tar.gz" "$member"
+    ) || return 1
+  fi
+  extract_tar_binary "$workdir/package.tar.gz" "$workdir"
+}
+
 prepare_binary() {
   local url="$1" workdir="$2" archive magic binary binary_magic
   archive="$workdir/download"
@@ -368,19 +462,12 @@ prepare_binary() {
   magic="$(head -c 4 "$archive" | od -An -t x1 | tr -d ' \n')"
   case "$magic" in
     1f8b*)
-      if ! mkdir -p "$workdir/extract"; then
-        error "创建解压目录失败。"
-        return 1
-      fi
-      if ! tar -xzf "$archive" -C "$workdir/extract"; then
-        error "解压失败，请确认安装包是 OpenList 的 tar.gz 文件。"
-        return 1
-      fi
-      if [ -f "$workdir/extract/$BINARY_NAME" ]; then
-        binary="$workdir/extract/$BINARY_NAME"
-      else
-        binary="$(find "$workdir/extract" -type f -name "$BINARY_NAME" -print 2>/dev/null | head -n 1)"
-      fi
+      extract_tar_binary "$archive" "$workdir" || return 1
+      binary="$PREPARED_BINARY"
+      ;;
+    504b0304|504b0506|504b0708)
+      prepare_zip_binary "$archive" "$workdir" || return 1
+      binary="$PREPARED_BINARY"
       ;;
     7f454c46)
       binary="$workdir/$BINARY_NAME"
@@ -390,7 +477,7 @@ prepare_binary() {
       fi
       ;;
     *)
-      error "下载内容既不是 gzip 压缩包，也不是 ELF 可执行文件（magic: ${magic:-空}）。"
+      error "下载内容不是 ZIP、gzip 压缩包或 ELF 可执行文件（magic: ${magic:-空}）。"
       return 1
       ;;
   esac

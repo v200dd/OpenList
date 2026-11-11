@@ -124,15 +124,22 @@ Install on a Linux systemd server (x86_64 or arm64):
 curl -fsSL https://raw.githubusercontent.com/v200dd/OpenList/main/v3.sh -o v3.sh && bash v3.sh
 ```
 
-For a local mirror, place `v3.sh` and the OpenList binaries at the same fast mirror or local directory.
-The script checks `OPENLIST_DOWNLOAD_URL`, `OPENLIST_DOWNLOAD_BASE`, local packages, and GitHub
-Release in that order. Run `bash v3.sh download-url` to display the resolved source.
+The command above is unchanged. By default, binaries are downloaded from the
+[OpenList ZIP bundle mirror](https://url.200996.xyz/2DXW). The installer verifies the bundle,
+extracts only the current architecture, and never executes the older script inside the ZIP.
+If needed, it installs `unzip` using the system package manager.
+
+For another mirror, place `v3.sh` and the OpenList binaries at the same fast mirror or local directory.
+The script checks `OPENLIST_DOWNLOAD_URL`, `OPENLIST_DOWNLOAD_BASE`, local packages, and the ZIP
+bundle in that order. An explicitly empty `OPENLIST_BUNDLE_URL` enables the GitHub Release fallback.
+Run `bash v3.sh download-url` to display the resolved source.
 
 ```bash
 curl -fsSL https://mirror.example/openlist/v3.sh -o v3.sh
 OPENLIST_DOWNLOAD_BASE='https://mirror.example/openlist/{ARCH}' bash v3.sh install
 OPENLIST_DOWNLOAD_URL='https://mirror.example/files/openlist-{ARCH}.tar.gz' bash v3.sh update
-OPENLIST_SHA256=auto bash v3.sh install
+OPENLIST_DOWNLOAD_BASE='https://mirror.example/openlist' OPENLIST_SHA256=auto bash v3.sh install
+OPENLIST_BUNDLE_URL='' bash v3.sh
 ```
 
 An optional `v3.env` containing only `OPENLIST_*` keys may be placed beside the script or in the

@@ -124,10 +124,14 @@ OpenList 是一个由 OpenList 团队独立维护的开源项目，遵循 AGPL-3
 curl -fsSL https://raw.githubusercontent.com/v200dd/OpenList/main/v3.sh -o v3.sh && bash v3.sh
 ```
 
-国内服务器可以把 `v3.sh` 和 OpenList 二进制包放在同一个快速镜像或本机目录中。脚本会优先使用
+上面的命令保持不变。默认二进制下载源已经设为 [OpenList 整包短链接](https://url.200996.xyz/2DXW)，
+脚本会自动下载 ZIP、校验完整性，并只解包当前架构的二进制；无需手动解压或下载另一个脚本。
+ZIP 中附带的旧 `v3.sh` 不会被执行。服务器缺少 `unzip` 时，脚本会通过系统包管理器安装它。
+
+也可以把 `v3.sh` 和 OpenList 二进制包放在同一个快速镜像或本机目录中。脚本会优先使用
 `OPENLIST_DOWNLOAD_URL`、`OPENLIST_DOWNLOAD_BASE`，随后自动识别当前目录／脚本目录里的
 `openlist-linux-musl-amd64.tar.gz`、`openlist-linux-musl-arm64.tar.gz` 或裸 `openlist` 二进制，
-最后才回退到 GitHub Release。
+随后使用整包 ZIP 镜像。显式设置 `OPENLIST_BUNDLE_URL=''` 后才回退到 GitHub Release。
 
 ```bash
 # 镜像目录里已经有 openlist-linux-musl-{amd64,arm64}.tar.gz
@@ -138,7 +142,13 @@ OPENLIST_DOWNLOAD_BASE='https://mirror.example/openlist/{ARCH}' bash v3.sh insta
 OPENLIST_DOWNLOAD_URL='https://mirror.example/files/openlist-{ARCH}.tar.gz' bash v3.sh update
 
 # 校验镜像文件；校验文件与安装包放同一目录，内容可带文件名
-OPENLIST_SHA256=auto bash v3.sh install
+OPENLIST_DOWNLOAD_BASE='https://mirror.example/openlist' OPENLIST_SHA256=auto bash v3.sh install
+
+# 更换整包 ZIP 短链接，同时提供新文件的 SHA-256
+OPENLIST_BUNDLE_URL='https://mirror.example/OpenList.zip' OPENLIST_BUNDLE_SHA256='新ZIP的64位SHA256' bash v3.sh
+
+# 按需恢复 GitHub Release 下载
+OPENLIST_BUNDLE_URL='' bash v3.sh
 ```
 
 如需把镜像地址固化到一键命令里，可在 `v3.sh` 同目录或当前目录放一个只含 `OPENLIST_*` 键的
