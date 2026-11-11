@@ -2,6 +2,15 @@ name: Beta Release (Docker)
 
 on:
   workflow_dispatch:
+    inputs:
+      export_only:
+        description: 'Verify/export an already published image without rebuilding binaries'
+        type: boolean
+        default: false
+      source_revision:
+        description: 'Full published backend SHA (required for export-only mode)'
+        type: string
+        required: false
   schedule:
     - cron: '23 * * * *'
   push:
@@ -52,11 +61,12 @@ jobs:
       - name: Test frontend freshness and offline installer
         run: |
           python3 tests/docker_frontend_test.py
+          python3 tests/docker_smoke_test.py
           bash tests/docker_v3_test.sh
 
   build_binary:
     needs: frontend
-    if: needs.frontend.outputs.should_build == 'true'
+    if: needs.frontend.outputs.should_build == 'true' && !inputs.export_only
     name: Build Binaries for Docker Release (Beta)
     runs-on: ubuntu-latest
     steps:
@@ -179,7 +189,7 @@ jobs:
   export_images:
     name: Verify and export Docker image (${{ matrix.arch }})
     needs: [frontend, release_docker]
-    if: github.event_name != 'pull_request'
+    if: always() && github.event_name != 'pull_request' && needs.frontend.result == 'success' && (needs.release_docker.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.export_only))
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -200,11 +210,12 @@ jobs:
       - name: Verify image and export offline package
         env:
           ARCH: ${{ matrix.arch }}
-          REVISION: ${{ github.sha }}
+          REVISION: ${{ inputs.source_revision || github.sha }}
           FRONTEND_VERSION: ${{ needs.frontend.outputs.frontend_version }}
           FRONTEND_SHA256: ${{ needs.frontend.outputs.frontend_sha256 }}
         run: |
           set -euo pipefail
+          [[ "$REVISION" =~ ^[0-9a-f]{40}$ ]]
           source="ghcr.io/${GHCR_ORG_NAME}/${IMAGE_NAME}:beta-${REVISION}"
           docker pull --platform "linux/${ARCH}" "$source"
           actual_revision="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$source")"

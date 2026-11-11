@@ -20,7 +20,7 @@ def check(origin):
         try:
             index = get("/")
             break
-        except (urllib.error.URLError, TimeoutError):
+        except (urllib.error.URLError, OSError):
             if attempt == 59:
                 raise
             time.sleep(1)
