@@ -124,6 +124,26 @@ OpenList 是一个由 OpenList 团队独立维护的开源项目，遵循 AGPL-3
 curl -fsSL https://raw.githubusercontent.com/v200dd/OpenList/main/v3.sh -o v3.sh && bash v3.sh
 ```
 
+国内服务器可以把 `v3.sh` 和 OpenList 二进制包放在同一个快速镜像或本机目录中。脚本会优先使用
+`OPENLIST_DOWNLOAD_URL`、`OPENLIST_DOWNLOAD_BASE`，随后自动识别当前目录／脚本目录里的
+`openlist-linux-musl-amd64.tar.gz`、`openlist-linux-musl-arm64.tar.gz` 或裸 `openlist` 二进制，
+最后才回退到 GitHub Release。
+
+```bash
+# 镜像目录里已经有 openlist-linux-musl-{amd64,arm64}.tar.gz
+curl -fsSL https://mirror.example/openlist/v3.sh -o v3.sh
+OPENLIST_DOWNLOAD_BASE='https://mirror.example/openlist/{ARCH}' bash v3.sh install
+
+# 使用完整的自定义文件名／下载地址，也可用 file:// 或本机绝对路径
+OPENLIST_DOWNLOAD_URL='https://mirror.example/files/openlist-{ARCH}.tar.gz' bash v3.sh update
+
+# 校验镜像文件；校验文件与安装包放同一目录，内容可带文件名
+OPENLIST_SHA256=auto bash v3.sh install
+```
+
+如需把镜像地址固化到一键命令里，可在 `v3.sh` 同目录或当前目录放一个只含 `OPENLIST_*` 键的
+`v3.env`，通过 `curl` 下载脚本后直接 `bash v3.sh`。运行 `bash v3.sh download-url` 可查看实际解析出的地址。
+
 ## 部署到 Cloudflare / EdgeOne
 
 本仓库的 Go 程序不能直接跑在 Workers 或 EdgeOne Functions 上。如果要在边缘平台完整部署，并用 **Cloudflare KV / D1** 或 **EdgeOne Blob / KV** 持久化配置，请部署 TypeScript Worker：

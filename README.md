@@ -124,6 +124,21 @@ Install on a Linux systemd server (x86_64 or arm64):
 curl -fsSL https://raw.githubusercontent.com/v200dd/OpenList/main/v3.sh -o v3.sh && bash v3.sh
 ```
 
+For a local mirror, place `v3.sh` and the OpenList binaries at the same fast mirror or local directory.
+The script checks `OPENLIST_DOWNLOAD_URL`, `OPENLIST_DOWNLOAD_BASE`, local packages, and GitHub
+Release in that order. Run `bash v3.sh download-url` to display the resolved source.
+
+```bash
+curl -fsSL https://mirror.example/openlist/v3.sh -o v3.sh
+OPENLIST_DOWNLOAD_BASE='https://mirror.example/openlist/{ARCH}' bash v3.sh install
+OPENLIST_DOWNLOAD_URL='https://mirror.example/files/openlist-{ARCH}.tar.gz' bash v3.sh update
+OPENLIST_SHA256=auto bash v3.sh install
+```
+
+An optional `v3.env` containing only `OPENLIST_*` keys may be placed beside the script or in the
+working directory. URL templates accept `{ARCH}` and `{TAG}`; `OPENLIST_GH_PROXY` remains available
+for the GitHub Release fallback.
+
 ## Deploy on Cloudflare / EdgeOne
 
 This Go binary cannot run on Workers or EdgeOne Functions. For a full edge install that stores metadata in **Cloudflare KV / D1** or **EdgeOne Blob / KV**, deploy the TypeScript Worker:
