@@ -65,6 +65,11 @@ test "$RESOLVED_URL" = "$DEFAULT_BUNDLE_URL"
 test "$RESOLVED_BUNDLE" = 1
 pass 'default short-link mirror'
 
+show_download_source > "$tmp/source-info" 2>&1
+grep -Fq 'SHA-256 校验: 已启用' "$tmp/source-info"
+DETECTED_ARCH=amd64
+pass 'source display includes the built-in bundle checksum'
+
 BUNDLE_URL=""
 resolve_url "$DETECTED_ARCH"
 test "$RESOLVED_URL" = "https://github.com/$GH_REPO/releases/download/$RELEASE_TAG/openlist-linux-musl-amd64.tar.gz"

@@ -673,7 +673,8 @@ show_download_source() {
   info "当前架构: $DETECTED_ARCH"
   info "下载地址: $RESOLVED_URL"
   printf '%s\n' "$RESOLVED_URL"
-  if [ -n "$CHECKSUM" ] || [ -n "$CHECKSUM_URL" ]; then
+  if [ -n "$CHECKSUM" ] || [ -n "$CHECKSUM_URL" ] ||
+    { [ "$RESOLVED_BUNDLE" = "1" ] && [ -n "$BUNDLE_CHECKSUM" ]; }; then
     if require_checksum_tool >/dev/null 2>&1; then
       info "SHA-256 校验: 已启用"
     else
