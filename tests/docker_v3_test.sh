@@ -4,6 +4,13 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
+installer=(bash "$root/docker-v3.sh")
+if [ "${OPENLIST_DOCKER_TEST_ENTRY:-}" = v3 ]; then
+  # Only copy v3.sh: Docker installation must not fetch or depend on a helper script.
+  mkdir -p "$tmp/standalone"
+  cp "$root/v3.sh" "$tmp/standalone/v3.sh"
+  installer=(bash "$tmp/standalone/v3.sh" docker)
+fi
 mkdir -p "$tmp/bin" "$tmp/deployment/data"
 python3 - "$tmp" <<'PY'
 import gzip, hashlib, io, json, pathlib, sys, tarfile, zipfile
@@ -44,7 +51,7 @@ printf 'keep-data\n' > "$tmp/deployment/data/marker"
 printf 'services:\n  openlist:\n    image: ghcr.nju.edu.cn/v200dd/openlist-git:beta\n' > "$tmp/deployment/compose.yaml"
 cp "$tmp/deployment/compose.yaml" "$tmp/expected-compose"
 cd "$tmp/deployment"
-OPENLIST_DOCKER_URL="file://$tmp/openlist-docker-beta-amd64.tar.gz" bash "$root/docker-v3.sh" update
+OPENLIST_DOCKER_URL="file://$tmp/openlist-docker-beta-amd64.tar.gz" "${installer[@]}" update
 grep -q 'amd64' "$DOCKER_TEST_ARCHIVE"
 grep -q 'up -d --pull never openlist' "$DOCKER_TEST_LOG"
 ! grep -q '^pull ' "$DOCKER_TEST_LOG"
@@ -55,24 +62,33 @@ echo 'PASS native package loads before update; configuration/data preserved; no 
 export DOCKER_TEST_ARCH=aarch64
 checksum="$(shasum -a 256 "$tmp/bundle.zip" | awk '{print $1}')"
 : > "$DOCKER_TEST_LOG"
-OPENLIST_DOCKER_BUNDLE_URL="file://$tmp/bundle.zip" OPENLIST_DOCKER_SHA256="$checksum" bash "$root/docker-v3.sh" load
+OPENLIST_DOCKER_BUNDLE_URL="file://$tmp/bundle.zip" OPENLIST_DOCKER_SHA256="$checksum" "${installer[@]}" load
 grep -q 'arm64' "$DOCKER_TEST_ARCHIVE"
 ! grep -q '^compose ' "$DOCKER_TEST_LOG"
 echo 'PASS ZIP selects ARM64; load-only mode leaves the container unchanged'
 
 : > "$DOCKER_TEST_LOG"
-if OPENLIST_DOCKER_BUNDLE_URL="file://$tmp/bundle.zip" OPENLIST_DOCKER_SHA256="$(printf '%064d' 0)" bash "$root/docker-v3.sh" load > "$tmp/bad-sha.log" 2>&1; then
+if OPENLIST_DOCKER_BUNDLE_URL="file://$tmp/bundle.zip" OPENLIST_DOCKER_SHA256="$(printf '%064d' 0)" "${installer[@]}" load > "$tmp/bad-sha.log" 2>&1; then
   echo 'FAIL bad checksum accepted' >&2; exit 1
 fi
 ! grep -q '^load ' "$DOCKER_TEST_LOG"
 echo 'PASS bad ZIP checksum rejected before Docker load'
 
 : > "$DOCKER_TEST_LOG"
-bash "$root/docker-v3.sh" download-url > "$tmp/default-source"
+"${installer[@]}" download-url > "$tmp/default-source"
 grep -Fxq 'https://url.200996.xyz/PuTW' "$tmp/default-source"
 test ! -s "$DOCKER_TEST_LOG"
 echo 'PASS built-in domestic short link can be inspected without Docker'
 
-OPENLIST_DOCKER_BUNDLE_URL='' bash "$root/docker-v3.sh" download-url > "$tmp/github-source"
+OPENLIST_DOCKER_BUNDLE_URL='' "${installer[@]}" download-url > "$tmp/github-source"
 grep -Fxq 'https://github.com/v200dd/OpenList/releases/download/beta/openlist-docker-beta-arm64.tar.gz' "$tmp/github-source"
 echo 'PASS explicit empty bundle restores GitHub Release source'
+
+export DOCKER_TEST_ARCH=x86_64
+mkdir -p "$tmp/fresh-deployment"
+cd "$tmp/fresh-deployment"
+: > "$DOCKER_TEST_LOG"
+OPENLIST_DOCKER_URL="file://$tmp/openlist-docker-beta-amd64.tar.gz" "${installer[@]}" install
+cmp docker-compose.yml "$root/docker-compose.offline.yml"
+grep -q 'up -d --pull never openlist' "$DOCKER_TEST_LOG"
+echo 'PASS fresh Docker installation creates the offline Compose configuration'

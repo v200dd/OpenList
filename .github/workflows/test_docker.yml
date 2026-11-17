@@ -63,6 +63,8 @@ jobs:
           python3 tests/docker_frontend_test.py
           python3 tests/docker_smoke_test.py
           bash tests/docker_v3_test.sh
+          OPENLIST_DOCKER_TEST_ENTRY=v3 bash tests/docker_v3_test.sh
+          bash tests/v3_menu_test.sh
 
   build_binary:
     needs: frontend

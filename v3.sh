@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# OpenList one-click installer for Linux systemd servers.
+# OpenList one-click installer for native systemd and Docker deployments.
 # Based on the layout of the official Alist v3.sh script.
 
 set -u
@@ -101,8 +101,12 @@ usage() {
 $APP_NAME 管理脚本
 
 用法:
-  bash $0 install [路径]    安装，默认路径: $DEFAULT_INSTALL_PATH
-  bash $0 update            更新
+  bash $0 install [路径]    普通安装，默认路径: $DEFAULT_INSTALL_PATH
+  bash $0 update            普通更新
+  bash $0 docker install    Docker 搭建（需要已安装 Docker 和 Compose）
+  bash $0 docker update     Docker 更新，沿用当前目录的 Compose 配置与数据
+  bash $0 docker load       只下载、校验并导入 Docker 镜像
+  bash $0 docker download-url  查看 Docker 镜像下载地址
   bash $0 download-url      查看当前解析出的下载地址
   bash $0 uninstall         卸载
   bash $0 start             启动服务
@@ -129,6 +133,14 @@ $APP_NAME 管理脚本
   OPENLIST_ENV_FILE          额外 KEY=VALUE 配置文件
   OPENLIST_INSTALL_PATH      安装目录；install 的第二个参数优先
   OPENLIST_SERVICE_FILE      systemd 单元文件路径（高级用途）
+
+Docker 下载与配置:
+  OPENLIST_DOCKER_BUNDLE_URL  Docker 整包 ZIP，默认 https://url.200996.xyz/PuTW
+  OPENLIST_DOCKER_URL         单个架构镜像包地址，支持 {ARCH} / {TAG}
+  OPENLIST_DOCKER_SHA256      Docker 整包或镜像包的 SHA-256
+  OPENLIST_DOCKER_SHA256_URL  Docker 校验文件地址
+  OPENLIST_DOCKER_TAG         镜像包标签，默认 beta
+  OPENLIST_COMPOSE_FILE       指定 Compose 文件，默认查找当前目录的配置
 
 优先级: OPENLIST_DOWNLOAD_URL > OPENLIST_DOWNLOAD_BASE > 本机安装包 > 整包 ZIP 镜像 > GitHub Release。
 自定义地址支持 http://、https://、file://、绝对路径及相对路径。
@@ -746,22 +758,171 @@ reset_password() {
   return 0
 }
 
+# Run Docker in a subshell so its settings and cleanup do not affect native installation.
+# Keep this workflow embedded: a mirrored v3.sh must work without another script.
+docker_openlist() (
+  set -euo pipefail
+
+  action="${1:-install}"
+  case "$action" in
+    install|update|load|download-url) ;;
+    *) echo "用法: bash $0 docker [install|update|load|download-url]" >&2; exit 1 ;;
+  esac
+  case "$(uname -m)" in
+    x86_64|amd64) arch=amd64 ;;
+    aarch64|arm64) arch=arm64 ;;
+    *) echo '镜像包安装目前支持 AMD64 和 ARM64。' >&2; exit 1 ;;
+  esac
+  tag="${OPENLIST_DOCKER_TAG:-beta}"
+  package="openlist-docker-${tag}-${arch}.tar.gz"
+  DEFAULT_BUNDLE_URL='https://url.200996.xyz/PuTW'
+  DEFAULT_BUNDLE_SHA256='65427ac072547b213098f438fa282019a6d510d8f6eb64495339798614591008'
+  default_bundle=""
+  [ "$tag" != beta ] || default_bundle="$DEFAULT_BUNDLE_URL"
+  # Explicit URLs override the built-in mirror. An empty bundle restores GitHub downloads.
+  bundle="${OPENLIST_DOCKER_BUNDLE_URL-$default_bundle}"
+  url="${OPENLIST_DOCKER_URL:-${bundle:-https://github.com/v200dd/OpenList/releases/download/${tag}/${package}}}"
+  url="${url//\{ARCH\}/$arch}"
+  url="${url//\{TAG\}/$tag}"
+  checksum="${OPENLIST_DOCKER_SHA256:-auto}"
+  if [ "$url" = "$DEFAULT_BUNDLE_URL" ] && [ -z "${OPENLIST_DOCKER_SHA256:-}" ] && [ -z "${OPENLIST_DOCKER_SHA256_URL:-}" ]; then
+    checksum="$DEFAULT_BUNDLE_SHA256"
+  fi
+  if [ "$action" = download-url ]; then
+    printf '%s\n' "$url"
+    exit 0
+  fi
+  for command in docker curl tar awk mktemp uname; do
+    command -v "$command" >/dev/null || { echo "未找到命令: $command" >&2; exit 1; }
+  done
+  docker info >/dev/null
+  work="$(mktemp -d)"
+  trap 'rm -rf "$work"' EXIT
+
+  fetch() {
+    curl -fL --retry 3 --connect-timeout 10 "$1" -o "$2"
+  }
+  verify() {
+    local file="$1" expected="$2" actual
+    [[ "$expected" =~ ^[0-9a-fA-F]{64}$ ]] || { echo '镜像包 SHA-256 格式错误。' >&2; return 1; }
+    if command -v sha256sum >/dev/null; then
+      actual="$(sha256sum "$file" | awk '{print $1}')"
+    elif command -v shasum >/dev/null; then
+      actual="$(shasum -a 256 "$file" | awk '{print $1}')"
+    else
+      echo '请先安装 sha256sum 或 shasum。' >&2; return 1
+    fi
+    test "$actual" = "$(printf '%s' "$expected" | tr 'A-F' 'a-f')" || { echo '镜像包 SHA-256 校验失败。' >&2; return 1; }
+    echo '镜像包 SHA-256 校验通过。'
+  }
+
+  ensure_unzip() {
+    command -v unzip >/dev/null && return 0
+    [ "$(id -u)" = 0 ] || { echo '自动安装 unzip 需要以 root 运行脚本。' >&2; return 1; }
+    echo '正在安装 ZIP 解包工具 unzip。'
+    if command -v apt-get >/dev/null; then
+      DEBIAN_FRONTEND=noninteractive apt-get update
+      DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends unzip
+    elif command -v dnf >/dev/null; then
+      dnf install -y unzip
+    elif command -v yum >/dev/null; then
+      yum install -y unzip
+    elif command -v apk >/dev/null; then
+      apk add --no-cache unzip
+    elif command -v zypper >/dev/null; then
+      zypper --non-interactive install unzip
+    elif command -v pacman >/dev/null; then
+      pacman -S --needed --noconfirm unzip
+    else
+      echo '请安装 unzip 解包工具后重试。' >&2; return 1
+    fi
+    command -v unzip >/dev/null
+  }
+
+  echo "正在下载 Docker 镜像包，架构: $arch"
+  fetch "$url" "$work/download"
+  if [ "$checksum" = auto ]; then
+    fetch "${OPENLIST_DOCKER_SHA256_URL:-${url}.sha256}" "$work/checksum"
+    checksum="$(awk 'NF {print $1; exit}' "$work/checksum")"
+  fi
+  verify "$work/download" "$checksum"
+
+  magic="$(head -c 4 "$work/download" | od -An -tx1 | tr -d ' \n')"
+  case "$magic" in
+    504b0304)
+      ensure_unzip
+      unzip -Z1 "$work/download" > "$work/members"
+      member=""
+      for candidate in "$package" "openlist-docker/$package"; do
+        if grep -Fxq "$candidate" "$work/members"; then member="$candidate"; break; fi
+      done
+      test -n "$member" || { echo "整包中未找到当前架构镜像: $package" >&2; exit 1; }
+      unzip -p "$work/download" "$member" > "$work/image.tar.gz"
+      unzip -p "$work/download" "$member.sha256" > "$work/image.sha256"
+      verify "$work/image.tar.gz" "$(awk 'NF {print $1; exit}' "$work/image.sha256")"
+      image_archive="$work/image.tar.gz"
+      ;;
+    1f8b*) image_archive="$work/download" ;;
+    *) echo '下载内容应为 Docker 镜像 tar.gz 或包含镜像包的 ZIP。' >&2; exit 1 ;;
+  esac
+
+  echo '正在导入 Docker 镜像。'
+  docker load --input "$image_archive"
+  image="ghcr.nju.edu.cn/v200dd/openlist-git:beta"
+  docker image inspect "$image" --format '后端: {{index .Config.Labels "org.opencontainers.image.revision"}}；前端: {{index .Config.Labels "org.opencontainers.image.frontend.version"}}'
+  [ "$action" != load ] || exit 0
+  docker compose version >/dev/null
+
+  compose="${OPENLIST_COMPOSE_FILE:-}"
+  if [ -z "$compose" ]; then
+    for candidate in compose.yaml compose.yml docker-compose.yml docker-compose.yaml; do
+      if [ -f "$candidate" ]; then compose="$candidate"; break; fi
+    done
+  fi
+  if [ -z "$compose" ]; then
+    compose=docker-compose.yml
+    cat > "$compose" <<'YAML'
+services:
+  openlist:
+    image: ghcr.nju.edu.cn/v200dd/openlist-git:beta
+    pull_policy: never
+    container_name: openlist
+    restart: unless-stopped
+    ports:
+      - "5244:5244"
+    volumes:
+      - ./data:/opt/openlist/data
+    environment:
+      - TZ=Asia/Shanghai
+      - UMASK=022
+    user: "0:0"
+YAML
+  fi
+  test -f "$compose" || { echo "未找到 Compose 配置: $compose" >&2; exit 1; }
+  # Keep existing configuration/data and do not pull an older image from a registry.
+  docker compose -f "$compose" up -d --pull never openlist
+  echo 'OpenList 已更新，原数据目录继续保留。'
+)
+
 show_menu() {
   command -v clear >/dev/null 2>&1 && clear
   echo "欢迎使用 OpenList 管理脚本"
   echo
-  echo "1、安装 OpenList"
-  echo "2、更新 OpenList"
+  echo "1、普通安装 OpenList（systemd）"
+  echo "2、普通更新 OpenList"
   echo "3、卸载 OpenList"
   echo "4、查看状态"
   echo "5、重置密码"
   echo "6、启动 OpenList"
   echo "7、停止 OpenList"
   echo "8、重启 OpenList"
-  echo "9、查看当前下载地址"
+  echo "9、查看普通安装下载地址"
+  echo "10、Docker 搭建 OpenList"
+  echo "11、Docker 更新 OpenList"
+  echo "12、查看 Docker 下载地址"
   echo "0、退出脚本"
   echo
-  read -r -p "请输入选项 [0-9]: " choice
+  read -r -p "请输入选项 [0-12]: " choice
   case "$choice" in
     1) install_openlist ;;
     2) update_openlist ;;
@@ -772,8 +933,11 @@ show_menu() {
     7) service_action stop ;;
     8) service_action restart ;;
     9) show_download_source ;;
+    10) docker_openlist install ;;
+    11) docker_openlist update ;;
+    12) docker_openlist download-url ;;
     0) exit 0 ;;
-    *) error "无效选项。" ;;
+    *) error "无效选项。"; return 1 ;;
   esac
 }
 
@@ -787,6 +951,9 @@ main() {
     install_openlist
   elif [ "$1" = "update" ]; then
     update_openlist
+  elif [ "$1" = "docker" ]; then
+    shift
+    docker_openlist "$@"
   elif [ "$1" = "download-url" ] || [ "$1" = "source" ]; then
     show_download_source
   elif [ "$1" = "uninstall" ]; then

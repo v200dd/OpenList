@@ -118,7 +118,8 @@ OpenList 是一个由 OpenList 团队独立维护的开源项目，遵循 AGPL-3
 
 ## Linux 一键安装
 
-在支持 systemd 的 Linux 服务器（x86_64 或 arm64）上一键安装：
+`v3.sh` 内置普通安装与 Docker 搭建、更新功能。普通安装支持 systemd Linux（x86_64 或 arm64），
+Docker 模式需要已安装 Docker 和 Compose。只下载这一份脚本即可显示管理菜单：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/v200dd/OpenList/main/v3.sh -o v3.sh && bash v3.sh
@@ -127,6 +128,16 @@ curl -fsSL https://raw.githubusercontent.com/v200dd/OpenList/main/v3.sh -o v3.sh
 上面的命令保持不变。默认二进制下载源已经设为 [OpenList 整包短链接](https://url.200996.xyz/2DXW)，
 脚本会自动下载 ZIP、校验完整性，并只解包当前架构的二进制；无需手动解压或下载另一个脚本。
 ZIP 中附带的旧 `v3.sh` 不会被执行。服务器缺少 `unzip` 时，脚本会通过系统包管理器安装它。
+
+菜单 `1` / `2` 为普通安装、更新，`10` / `11` 为 Docker 搭建、更新。Docker 默认从
+[国内 Docker 整包短链接](https://url.200996.xyz/PuTW) 下载镜像并导入，沿用当前目录的 Compose 配置与数据。
+可以把这份完整的 `v3.sh` 单独上传到网盘，为脚本生成短链接后替换上述命令中的脚本下载地址。
+直接执行 Docker 搭建或更新也使用同一份脚本：
+
+```bash
+bash v3.sh docker install
+bash v3.sh docker update
+```
 
 也可以把 `v3.sh` 和 OpenList 二进制包放在同一个快速镜像或本机目录中。脚本会优先使用
 `OPENLIST_DOWNLOAD_URL`、`OPENLIST_DOWNLOAD_BASE`，随后自动识别当前目录／脚本目录里的
@@ -179,14 +190,14 @@ docker image inspect ghcr.nju.edu.cn/v200dd/openlist-git:beta --format '前端�
 
 ```bash
 # 默认从国内整包短链接下载、校验镜像并更新 OpenList
-curl -fsSL https://raw.githubusercontent.com/v200dd/OpenList/main/docker-v3.sh -o docker-v3.sh && bash docker-v3.sh
+curl -fsSL https://raw.githubusercontent.com/v200dd/OpenList/main/v3.sh -o v3.sh && bash v3.sh docker install
 
 # 使用国内 OpenList 的整包 ZIP 直链：SHA-256 是新 Docker ZIP 的摘要
-OPENLIST_DOCKER_BUNDLE_URL='https://mirror.example/OpenList-Docker.zip' OPENLIST_DOCKER_SHA256='新DockerZIP的64位SHA256' bash docker-v3.sh
+OPENLIST_DOCKER_BUNDLE_URL='https://mirror.example/OpenList-Docker.zip' OPENLIST_DOCKER_SHA256='新DockerZIP的64位SHA256' bash v3.sh docker install
 
 # 查看下载源；显式清空整包地址后，改用最新 beta Release 镜像包
-bash docker-v3.sh download-url
-OPENLIST_DOCKER_BUNDLE_URL='' bash docker-v3.sh
+bash v3.sh docker download-url
+OPENLIST_DOCKER_BUNDLE_URL='' bash v3.sh docker install
 ```
 
 默认 Docker 整包地址为 [国内 Docker 短链接](https://url.200996.xyz/PuTW)，脚本内置该 ZIP 的 SHA-256。

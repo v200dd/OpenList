@@ -118,7 +118,9 @@ Thank you for your support and understanding of the OpenList project.
 
 ## Install on Linux
 
-Install on a Linux systemd server (x86_64 or arm64):
+`v3.sh` includes native installation and Docker deployment/update in one script. Native installation
+requires Linux systemd (x86_64 or arm64); Docker mode requires Docker and Compose. Download this
+single script to open the management menu:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/v200dd/OpenList/main/v3.sh -o v3.sh && bash v3.sh
@@ -128,6 +130,17 @@ The command above is unchanged. By default, binaries are downloaded from the
 [OpenList ZIP bundle mirror](https://url.200996.xyz/2DXW). The installer verifies the bundle,
 extracts only the current architecture, and never executes the older script inside the ZIP.
 If needed, it installs `unzip` using the system package manager.
+
+Menu options `1` / `2` install/update the native service; `10` / `11` deploy/update Docker.
+Docker mode downloads the [domestic Docker bundle](https://url.200996.xyz/PuTW), imports the image,
+and preserves the current directory's Compose configuration and data. The complete `v3.sh` can be
+hosted as a standalone file at a mirror and downloaded through its own short link.
+Direct Docker commands use the same script:
+
+```bash
+bash v3.sh docker install
+bash v3.sh docker update
+```
 
 For another mirror, place `v3.sh` and the OpenList binaries at the same fast mirror or local directory.
 The script checks `OPENLIST_DOWNLOAD_URL`, `OPENLIST_DOWNLOAD_BASE`, local packages, and the ZIP
@@ -170,7 +183,7 @@ SHA-256 sidecars to the `beta` release. These Docker image archives can be hoste
 loaded without pulling through a registry. They are distinct from standalone binary packages.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/v200dd/OpenList/main/docker-v3.sh -o docker-v3.sh && bash docker-v3.sh
+curl -fsSL https://raw.githubusercontent.com/v200dd/OpenList/main/v3.sh -o v3.sh && bash v3.sh docker install
 ```
 
 `OPENLIST_DOCKER_URL` selects an individual image archive. `OPENLIST_DOCKER_BUNDLE_URL` selects a ZIP
@@ -179,7 +192,7 @@ configuration and data are preserved; updates use `--pull never`. See `docker-co
 Self-hosted OpenList files need to be refreshed when new exported images are published.
 The default beta bundle uses [the domestic short link](https://url.200996.xyz/PuTW) with its
 SHA-256 pinned in the installer. An explicitly empty `OPENLIST_DOCKER_BUNDLE_URL` restores the
-latest GitHub Release archive source. Run `bash docker-v3.sh download-url` to inspect the source.
+latest GitHub Release archive source. Run `bash v3.sh docker download-url` to inspect the source.
 
 When refreshing a domestic bundle, update the ZIP, its per-architecture SHA-256 sidecars, and the
 installer's pinned bundle SHA-256 together. Both Docker and standalone binary bundles embed the
