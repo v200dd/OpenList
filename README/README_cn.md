@@ -161,6 +161,18 @@ OPENLIST_BUNDLE_URL='' bash v3.sh
 未变化时跳过构建。镜像标签记录后端提交、前端版本和前端 SHA-256。
 `beta` 跟随本 fork 已发布的代码与前端，不会自动升级服务器上已经运行的容器；拉取并重建容器后生效。
 
+在原 Compose 部署目录中更新镜像并重建容器，沿用现有数据挂载：
+
+```bash
+docker compose pull openlist
+docker compose up -d --force-recreate openlist
+docker image inspect ghcr.nju.edu.cn/v200dd/openlist-git:beta --format '前端版本: {{index .Config.Labels "org.opencontainers.image.frontend.version"}}'
+```
+
+仓库中的 `docker-compose.yml` 默认使用本 fork 的国内加速镜像。旧系统 Markdown 正则兼容修复包含在
+`v4.2.9-2b48a12` 前端中；镜像发布后，应通过上述标签确认实际拉取的前端版本。
+使用 `pull_policy: never` 的离线部署请通过下方脚本先导入新版镜像。
+
 每次成功发布还会生成 AMD64、ARM64 的 Docker 镜像导出包和 `.sha256` 校验文件，位于 `beta` Release。
 这些包可上传到国内 OpenList，再通过直链下载、`docker load` 导入。
 二进制安装用的 `OpenList.zip` 与 Docker 镜像导出包是不同格式。
@@ -184,6 +196,9 @@ OPENLIST_DOCKER_BUNDLE_URL='' bash docker-v3.sh
 脚本沿用现有 Compose 文件与数据目录，只更新 `openlist` 服务，并使用 `--pull never` 防止再次拉取旧镜像。
 新部署可使用仓库中的 `docker-compose.offline.yml`。国内 OpenList 上的镜像包需要随着新版导出包更新，
 GitHub 发布不会自动替换自行上传的文件。
+
+替换国内整包时，需要同时更新 ZIP、包内各架构的 `.sha256`，以及安装脚本中的默认整包 SHA-256。
+Docker 镜像整包与二进制安装整包都嵌入了前端，前端兼容修复后两种整包均需要重新生成并上传。
 
 ## 部署到 Cloudflare / EdgeOne
 

@@ -11,4 +11,4 @@ services:
       - UMASK=022
       - TZ=Asia/Shanghai
     container_name: openlist
-    image: 'openlistteam/openlist:latest'
+    image: 'ghcr.nju.edu.cn/v200dd/openlist-git:beta'

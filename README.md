@@ -152,6 +152,19 @@ Backend pushes publish `beta`. An hourly check also rebuilds Docker when the pub
 `edge` archive changes, and skips unchanged builds. Image labels record both backend revision and
 frontend version/digest. Running containers still need to be recreated to use a newly published image.
 
+The default `docker-compose.yml` uses this fork's accelerated GHCR image. Update from the existing
+Compose deployment directory to retain its data mounts:
+
+```bash
+docker compose pull openlist
+docker compose up -d --force-recreate openlist
+docker image inspect ghcr.nju.edu.cn/v200dd/openlist-git:beta --format 'Frontend: {{index .Config.Labels "org.opencontainers.image.frontend.version"}}'
+```
+
+The older-Safari Markdown RegExp fix is included in frontend `v4.2.9-2b48a12`.
+Check the image label after the updated image is published. Offline deployments using
+`pull_policy: never` should import the new image with the installer below instead.
+
 Successful Docker builds export AMD64 and ARM64 `openlist-docker-beta-{ARCH}.tar.gz` archives plus
 SHA-256 sidecars to the `beta` release. These Docker image archives can be hosted on OpenList and
 loaded without pulling through a registry. They are distinct from standalone binary packages.
@@ -167,6 +180,10 @@ Self-hosted OpenList files need to be refreshed when new exported images are pub
 The default beta bundle uses [the domestic short link](https://url.200996.xyz/PuTW) with its
 SHA-256 pinned in the installer. An explicitly empty `OPENLIST_DOCKER_BUNDLE_URL` restores the
 latest GitHub Release archive source. Run `bash docker-v3.sh download-url` to inspect the source.
+
+When refreshing a domestic bundle, update the ZIP, its per-architecture SHA-256 sidecars, and the
+installer's pinned bundle SHA-256 together. Both Docker and standalone binary bundles embed the
+frontend and need to be regenerated and uploaded after a frontend compatibility fix.
 
 ## Deploy on Cloudflare / EdgeOne
 
