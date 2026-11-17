@@ -15,7 +15,7 @@ esac
 tag="${OPENLIST_DOCKER_TAG:-beta}"
 package="openlist-docker-${tag}-${arch}.tar.gz"
 DEFAULT_BUNDLE_URL='https://url.200996.xyz/PuTW'
-DEFAULT_BUNDLE_SHA256='0e7d7fd7deeb05da8089d433c0079711340dbffe6c802c8ae1fbce294a42184e'
+DEFAULT_BUNDLE_SHA256='65427ac072547b213098f438fa282019a6d510d8f6eb64495339798614591008'
 default_bundle=""
 [ "$tag" != beta ] || default_bundle="$DEFAULT_BUNDLE_URL"
 # Explicit URLs override the built-in mirror. An empty bundle restores GitHub downloads.
